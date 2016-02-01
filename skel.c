@@ -99,7 +99,3 @@ int WEAK _isatty(int fd) {
 		return 1;
 	return 0;
 }
-
-void __aeabi_unwind_cpp_pr0(void){}
-void __libc_init_array(void){}
-int atexit(void(*f)(void)){ return 0; }

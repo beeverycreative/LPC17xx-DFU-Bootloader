@@ -44,11 +44,14 @@ typedef enum {
 	UART_TX = P0_2,
 	UART_RX = P0_3,
 
-	LED1 = P1_18,
-	LED2 = P1_19,
-	LED3 = P1_20,
-	LED4 = P1_21,
-	LED5 = P4_28,
+	LED1 = P1_20,
+	LED2 = P1_25,
+	LED3 = P1_29,
+	LED4 = P0_10,
+	LED5 = -1,
+
+	EXTRUDER_HEATER = P2_4,
+	BED_HEATER = P2_5,
 
 	// Not connected
 	NC = -1

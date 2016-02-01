@@ -43,16 +43,17 @@
 
 #include "lpc17xx_wdt.h"
 
-#define ISP_BTN	P2_12
+#define ISP_BTN	P4_29
 
-#ifndef DEBUG_MESSAGES
+#if !(defined DEBUG)
 #define printf(...) do {} while (0)
 #endif
 
 FATFS	fat;
 FIL		file;
 
-const char *firmware_file = "firmware.bin";
+//const char *firmware_file = "firmware.bin";
+const char *firmware_file = "MAIN";
 const char *firmware_old  = "firmware.cur";
 
 void setleds(int leds)
@@ -61,7 +62,7 @@ void setleds(int leds)
 	GPIO_write(LED2, leds &  2);
 	GPIO_write(LED3, leds &  4);
 	GPIO_write(LED4, leds &  8);
-	GPIO_write(LED5, leds & 16);
+	//GPIO_write(LED5, leds & 16);
 }
 
 int isp_btn_pressed()
@@ -82,11 +83,11 @@ void start_dfu()
 void check_sd_firmware()
 {
 	int r;
-// 	printf("Check SD\n");
+	printf("Check SD\n");
 	f_mount(0, &fat);
 	if ((r = f_open(&file, firmware_file, FA_READ)) == FR_OK)
 	{
-// 		printf("Flashing firmware...\n");
+		printf("Flashing firmware...\n");
 		uint8_t buf[512];
 		unsigned int r = sizeof(buf);
 		uint32_t address = USER_FLASH_START;
@@ -100,7 +101,7 @@ void check_sd_firmware()
 
 			setleds((address - USER_FLASH_START) >> 15);
 
-// 			printf("\t0x%lx\n", address);
+			printf("\t0x%lx\n", address);
 
 			write_flash((void *) address, (char *)buf, sizeof(buf));
 			address += r;
@@ -108,14 +109,14 @@ void check_sd_firmware()
 		f_close(&file);
 		if (address > USER_FLASH_START)
 		{
-// 			printf("Complete!\n");
+			printf("Complete!\n");
 			r = f_unlink(firmware_old);
 			r = f_rename(firmware_file, firmware_old);
 		}
 	}
 	else
 	{
-// 		printf("open: %d\n", r);
+		printf("open: %d\n", r);
 	}
 }
 
@@ -153,12 +154,6 @@ static void new_execute_user_code(void)
 	LPC_SC->PLL0FEED = 0xAA;
 	LPC_SC->PLL0FEED = 0x55;
 	while (LPC_SC->PLL0STAT&(1<<24));
-	// disable PLL1
-	LPC_SC->PLL1CON   = 0;
-	LPC_SC->PLL1FEED  = 0xAA;
-	LPC_SC->PLL1FEED  = 0x55;
-	while (LPC_SC->PLL1STAT&(1<<9));
-
 	LPC_SC->FLASHCFG &= 0x0fff;  // This is the default flash read/write setting for IRC
 	LPC_SC->FLASHCFG |= 0x5000;
 	LPC_SC->CCLKCFG = 0x0;     //  Select the IRC as clk
@@ -167,10 +162,10 @@ static void new_execute_user_code(void)
 	delay_loop(1000);
 	// reset pipeline, sync bus and memory access
 	__asm (
-		   "dmb\n"
-		   "dsb\n"
-		   "isb\n"
-		  );
+			"dmb\n"
+			"dsb\n"
+			"isb\n"
+	);
 	boot(addr);
 }
 
@@ -178,7 +173,9 @@ int main()
 {
 	WDT_Feed();
 
+	/*
 	GPIO_init(ISP_BTN); GPIO_input(ISP_BTN);
+
 
 	GPIO_init(LED1); GPIO_output(LED1);
 	GPIO_init(LED2); GPIO_output(LED2);
@@ -193,18 +190,31 @@ int main()
 	GPIO_init(P2_7); GPIO_output(P2_7); GPIO_write(P2_7, 0);
 
 	setleds(31);
+	 */
 
-	UART_init(UART_RX, UART_TX, APPBAUD);
+	GPIO_init(LED1); GPIO_output(LED1);
+	GPIO_init(LED2); GPIO_output(LED2);
+	GPIO_init(LED3); GPIO_output(LED3);
+	GPIO_init(LED4); GPIO_output(LED4);
 
+	// turn off heater outputs
+	GPIO_init(BED_HEATER); GPIO_output(BED_HEATER); GPIO_write(BED_HEATER, 0);
+	GPIO_init(EXTRUDER_HEATER); GPIO_output(EXTRUDER_HEATER); GPIO_write(EXTRUDER_HEATER, 0);
+
+	setleds(15);
+
+	UART_init(UART_RX, UART_TX, 9600);
 	printf("Bootloader Start\n");
 
 	// give SD card time to wake up
 	for (volatile int i = (1UL<<12); i; i--);
 
-	SDCard_init(P0_9, P0_8, P0_7, P0_6);
+	//SDCard_init(P0_9, P0_8, P0_7, P0_6);
+	SDCard_init(P0_18, P0_17, P0_15, P0_16);
+	GPIO_write(LED1, 0);
 	if (SDCard_disk_initialize() == 0)
 		check_sd_firmware();
-
+	/*
 	int dfu = 0;
 	if (isp_btn_pressed() == 0)
 	{
@@ -219,26 +229,28 @@ int main()
 
 	if (dfu)
 		start_dfu();
-
+	 */
 #ifdef WATCHDOG
 	WDT_Init(WDT_CLKSRC_IRC, WDT_MODE_RESET);
 	WDT_Start(1<<22);
 #endif
 
 	// grab user code reset vector
-// #ifdef DEBUG
+#ifdef DEBUG
 	unsigned *p = (unsigned *)(USER_FLASH_START +4);
 	printf("Jumping to 0x%x\n", *p);
-// #endif
+#endif
 
 	while (UART_busy());
 	printf("Jump!\n");
 	while (UART_busy());
 	UART_deinit();
 
+	setleds(0);
+
 	new_execute_user_code();
 
-    UART_init(UART_RX, UART_TX, APPBAUD);
+	UART_init(UART_RX, UART_TX, 2000000);
 
 	printf("This should never happen\n");
 
@@ -249,6 +261,9 @@ int main()
 	NVIC_SystemReset();
 }
 
+
+void __aeabi_unwind_cpp_pr0(void){}
+void __libc_init_array(void){}
 
 uint32_t get_fattime()
 {
@@ -277,22 +292,22 @@ int _write(int fd, const char *buf, int buflen)
 }
 
 void NMI_Handler() {
-// 	printf("NMI\n");
+	printf("NMI\n");
 	for (;;);
 }
 void HardFault_Handler() {
-// 	printf("HardFault\n");
+	printf("HardFault\n");
 	for (;;);
 }
 void MemManage_Handler() {
-// 	printf("MemManage\n");
+	printf("MemManage\n");
 	for (;;);
 }
 void BusFault_Handler() {
-// 	printf("BusFault\n");
+	printf("BusFault\n");
 	for (;;);
 }
 void UsageFault_Handler() {
-// 	printf("UsageFault\n");
+	printf("UsageFault\n");
 	for (;;);
 }

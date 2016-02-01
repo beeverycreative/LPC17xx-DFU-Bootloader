@@ -2,11 +2,9 @@
 #
 #
 
-APPBAUD  = 1000000
+APPBAUD  = 2000000
 
 PROJECT  = DFU-Bootloader
-
-CONSOLE  = /dev/arduino
 
 CSRC     = $(wildcard *.c)
 CXXSRC   = $(wildcard *.cpp)
@@ -28,7 +26,7 @@ NXPO     = $(patsubst %.c,$(OUTDIR)/%.o,$(notdir $(NXPSRC))) $(OUTDIR)/system_LP
 FATFSSRC = $(shell find fatfs/ -name '*.c')
 FATFSO   = $(patsubst %.c,$(OUTDIR)/%.o,$(notdir $(FATFSSRC)))
 
-CHIP     = lpc1769
+CHIP     = lpc1758
 MCU      = cortex-m3
 
 ARCH     = arm-none-eabi
@@ -58,7 +56,7 @@ CDEFS    = MAX_URI_LENGTH=512 __LPC17XX__ USB_DEVICE_ONLY APPBAUD=$(APPBAUD)
 FLAGS    = -O$(OPTIMIZE) -mcpu=$(MCU) -mthumb -mthumb-interwork -mlong-calls -ffunction-sections -fdata-sections -Wall -g -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 FLAGS   += $(patsubst %,-I%,$(INC))
 FLAGS   += $(patsubst %,-D%,$(CDEFS))
-CFLAGS   = $(FLAGS) -std=gnu99 -pipe -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vfprintf -fno-builtin-puts
+CFLAGS   = $(FLAGS) -std=gnu99 -pipe -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vfprintf
 ASFLAGS  = $(FLAGS)
 CXXFLAGS = $(FLAGS) -fno-rtti -fno-exceptions -std=gnu++0x
 
@@ -93,15 +91,9 @@ clean:
 	@$(RMDIR) $(OUTDIR); true
 
 program: $(OUTDIR)/$(PROJECT).hex
-	lpc21isp $^ $(CONSOLE) 115200 12000
+	lpc21isp $^ /dev/arduino 115200 12000
 
 upload: program
-
-console:
-	@stty raw ignbrk -echo $(APPBAUD) < $(CONSOLE)
-	@echo "Press ctrl+D to exit"
-	@( cat <&3 & cat >&3 ; kill %% ) 3<>$(CONSOLE)
-
 
 # size: $(OUTDIR)/$(PROJECT).elf
 # 	@$(SIZE) $<
